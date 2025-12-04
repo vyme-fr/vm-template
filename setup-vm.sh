@@ -1,0 +1,13 @@
+virt-customize \
+  -a debian-12-generic-amd64.qcow2 \
+  --install qemu-guest-agent,sudo,mtr \
+  --run-command "sed -i 's|^root:[^:]*:|root:!:|' /etc/shadow" \
+  --run-command "sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config" \
+  --run-command "sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config" \
+  --run-command "sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config" \
+  --copy-in 00-motd.sh:/etc/profile.d/ \
+  --run-command "chmod +x /etc/profile.d/00-motd.sh" \
+  --run-command "systemctl enable qemu-guest-agent" \
+  --firstboot-command "apt-get update" \
+  --run-command 'rm -rf /var/log/*' \
+  --run-command "apt-get clean"
