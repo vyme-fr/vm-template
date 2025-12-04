@@ -1,6 +1,6 @@
 virt-customize \
   -a debian-12-generic-amd64.qcow2 \
-  --install qemu-guest-agent,sudo,mtr \
+  --install qemu-guest-agent,sudo,mtr,bc \
   --run-command "sed -i 's|^root:[^:]*:|root:!:|' /etc/shadow" \
   --run-command "sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config" \
   --run-command "sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config" \
