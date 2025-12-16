@@ -36,4 +36,4 @@ virt_custom:
       mode: "+x"
 
 firstboot:
-  - apt-get update
+  - apt update && apt -y upgrade
