@@ -9,13 +9,13 @@ IMAGES="images.yml"
 #######################################
 require() {
   command -v "$1" >/dev/null || {
-    echo "❌ Missing dependency: $1"
+    echo "Missing dependency: $1"
     exit 1
   }
 }
 
 die() {
-  echo "❌ $1"
+  echo "$1"
   exit 1
 }
 
@@ -46,7 +46,7 @@ IMAGE_FILE=$(basename "$IMAGE_URL")
 #######################################
 # Download
 #######################################
-echo "⬇Downloading $IMAGE_FILE"
+echo "Downloading $IMAGE_FILE"
 wget -q --show-progress "$IMAGE_URL"
 
 [ -s "$IMAGE_FILE" ] || die "Download failed (empty file)"
@@ -113,7 +113,7 @@ virt-customize \
   -a "$IMAGE_FILE" \
   --install "$INSTALL_PKGS" \
   "${CMD_ARGS[@]}" \
-  --firstboot-command "$FIRSTBOOT_CMD" 2>/dev/null
+  --firstboot-command "$FIRSTBOOT_CMD"
 
 #######################################
 # Proxmox VM
