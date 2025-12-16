@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
 
 CONFIG="config.yml"
 IMAGES="images.yml"
@@ -114,7 +113,7 @@ virt-customize \
   -a "$IMAGE_FILE" \
   --install "$INSTALL_PKGS" \
   "${CMD_ARGS[@]}" \
-  --firstboot-command "$FIRSTBOOT_CMD"
+  --firstboot-command "$FIRSTBOOT_CMD" 2>/dev/null
 
 #######################################
 # Proxmox VM
