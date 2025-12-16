@@ -32,7 +32,7 @@ virt_custom:
 
   copy:
     - src: files/00-motd.sh
-      dst: /etc/profile.d/00-motd.sh
+      dst: /etc/profile.d/
       mode: "+x"
 
 firstboot:
