@@ -9,8 +9,8 @@ images:
 
   ubuntu:
     "20.04":
-      url: https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.raw
+      url: https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
     "22.04":
-      url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.raw
+      url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
     "24.04":
-      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.raw
+      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
