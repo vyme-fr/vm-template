@@ -25,14 +25,14 @@ read -rp "Version: " VERSION
 IMAGE_URL=$(yq ".images.$OS.\"$VERSION\".url" "$IMAGES")
 [ "$IMAGE_URL" = "null" ] && { echo "❌ Unknown OS/version"; exit 1; }
 
-IMAGE_FILE=$(basename "$IMAGE_URL")
+IMAGE_FILE=$(basename "$IMAGE_URL") 
 
 echo "Downloading $IMAGE_FILE"
 wget -q --show-progress $IMAGE_URL
 
 CONVERT_POLICY=$(yq -r '.image.convert_qcow2_to_raw // "true"' "$CONFIG")
 
-if [[ "$IMAGE_FILE" == *.qcow2 && "$CONVERT_POLICY" -eq "true" ]]; then
+if [[ "$IMAGE_FILE" == *.qcow2 && "$CONVERT_POLICY" == "true" ]]; then
   RAW_IMAGE="${IMAGE_FILE%.qcow2}.raw"
 
   echo "Converting qcow2 to raw"
