@@ -35,7 +35,7 @@ require pvesm
 echo "OS list:"
 yq -r '.images | keys[]' "$IMAGES"
 
-read -rp "OS (debian/ubuntu/almalinux): " OS
+read -rp "OS (debian/ubuntu/almalinux/alpine): " OS
 read -rp "Version: " VERSION
 
 IMAGE_URL=$(yq -r ".images.$OS.\"$VERSION\".url" "$IMAGES")
