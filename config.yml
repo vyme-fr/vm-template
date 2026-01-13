@@ -31,7 +31,7 @@ virt_custom:
       - sudo
       - mtr
       - bc
-      
+
   commands:
     default:
       - sed -i 's|^root:[^:]*:|root:!:|' /etc/shadow
