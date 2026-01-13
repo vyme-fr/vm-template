@@ -35,7 +35,7 @@ require pvesm
 echo "OS list:"
 yq -r '.images | keys[]' "$IMAGES"
 
-read -rp "OS (debian/ubuntu): " OS
+read -rp "OS (debian/ubuntu/alpine): " OS
 read -rp "Version: " VERSION
 
 IMAGE_URL=$(yq -r ".images.$OS.\"$VERSION\".url" "$IMAGES")
@@ -85,14 +85,14 @@ fi
 #######################################
 # virt-customize
 #######################################
-INSTALL_PKGS=$(yq -r '.virt_custom.install | join(",")' "$CONFIG")
+INSTALL_PKGS=$(yq -r ".virt_custom.install.\"$OS\" // .virt_custom.install.default | join(\",\")" "$CONFIG")
 
 CMD_ARGS=()
 
 # run-command (SAFE loop)
 while IFS= read -r cmd; do
   CMD_ARGS+=(--run-command "$cmd")
-done < <(yq -r '.virt_custom.commands[]' "$CONFIG")
+done < <(yq -r ".virt_custom.commands.\"$OS\" // .virt_custom.commands.default | .[]" "$CONFIG")
 
 # copy-in
 COPY_COUNT=$(yq -r '.virt_custom.copy | length // 0' "$CONFIG")
@@ -106,7 +106,7 @@ for ((i=0; i<COPY_COUNT; i++)); do
   [ -n "$MODE" ] && CMD_ARGS+=(--run-command "chmod $MODE $DST")
 done
 
-FIRSTBOOT_CMD=$(yq -r '.firstboot | join(" && ")' "$CONFIG")
+FIRSTBOOT_CMD=$(yq -r ".firstboot.\"$OS\" // .firstboot.default | join(\" && \")" "$CONFIG")
 
 echo "virt-customize"
 virt-customize \
