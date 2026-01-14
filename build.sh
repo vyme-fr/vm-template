@@ -108,9 +108,17 @@ done
 
 FIRSTBOOT_CMD=$(yq -r ".firstboot.\"$OS\" // .firstboot.default | join(\" && \")" "$CONFIG")
 
+# Valid DNS for apk
+DNS_FIX=()
+if [ "$OS" = "alpine" ]; then
+  NS_IP=$(yq -r '.template.nameserver // "8.8.8.8"' "$CONFIG")
+  DNS_FIX+=(--run-command "echo 'nameserver $NS_IP' > /etc/resolv.conf")
+fi
+
 echo "virt-customize"
 virt-customize \
   -a "$IMAGE_FILE" \
+  "${DNS_FIX[@]}" \
   --install "$INSTALL_PKGS" \
   "${CMD_ARGS[@]}" \
   --firstboot-command "$FIRSTBOOT_CMD"
