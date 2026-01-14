@@ -108,20 +108,61 @@ done
 
 FIRSTBOOT_CMD=$(yq -r ".firstboot.\"$OS\" // .firstboot.default | join(\" && \")" "$CONFIG")
 
-# Valid DNS for apk
-DNS_FIX=()
+echo "virt-customize"
+VIRT_CUSTOMIZE_ARGS=( -a "$IMAGE_FILE" )
+
 if [ "$OS" = "alpine" ]; then
-  NS_IP=$(yq -r '.template.nameserver // "8.8.8.8"' "$CONFIG")
-  DNS_FIX+=(--run-command "echo 'nameserver $NS_IP' > /etc/resolv.conf")
+  NS_IP=$(yq -r '.template.nameserver // "1.1.1.1"' "$CONFIG")
+  PKGS_SPACE=$(echo "$INSTALL_PKGS" | tr ',' ' ')
+
+  ALPINE_SCRIPT="
+    set -x
+    echo '=== Alpine Network Setup ==='
+    ip link set dev eth0 up || ifconfig eth0 up || true
+    udhcpc -i eth0 -n -q -t 5 || true
+    
+    echo '=== DNS Setup ==='
+    rm -f /etc/resolv.conf
+    echo 'nameserver $NS_IP' > /etc/resolv.conf
+    echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
+    chmod 644 /etc/resolv.conf
+    cat /etc/resolv.conf
+    
+    echo '=== Network Diagnosis ==='
+    ip addr show dev eth0
+    ping -c 2 8.8.8.8 || echo 'WARNING: Ping IP failed'
+    ping -c 2 dl-cdn.alpinelinux.org || echo 'WARNING: Ping Domain failed'
+
+    echo '=== Package Installation ==='
+    apk update
+    apk add $PKGS_SPACE
+
+    echo '=== Firstboot Configuration ==='
+    mkdir -p /etc/local.d
+    cat <<EOF > /etc/local.d/99-firstboot.start
+#!/bin/sh
+echo 'Running firstboot command...'
+$FIRSTBOOT_CMD
+echo 'Firstboot complete, deleting script.'
+rm -f /etc/local.d/99-firstboot.start
+EOF
+    chmod +x /etc/local.d/99-firstboot.start
+    rc-update add local default
+  "
+  VIRT_CUSTOMIZE_ARGS+=( --run-command "$ALPINE_SCRIPT" )
+else
+  # Standard logic for Debian/Ubuntu
+  VIRT_CUSTOMIZE_ARGS+=( --install "$INSTALL_PKGS" )
 fi
 
-echo "virt-customize"
-virt-customize \
-  -a "$IMAGE_FILE" \
-  "${DNS_FIX[@]}" \
-  --install "$INSTALL_PKGS" \
-  "${CMD_ARGS[@]}" \
-  --firstboot-command "$FIRSTBOOT_CMD"
+# Add other common args
+VIRT_CUSTOMIZE_ARGS+=( "${CMD_ARGS[@]}" )
+
+if [ "$OS" != "alpine" ]; then
+  VIRT_CUSTOMIZE_ARGS+=( --firstboot-command "$FIRSTBOOT_CMD" )
+fi
+
+virt-customize "${VIRT_CUSTOMIZE_ARGS[@]}"
 
 #######################################
 # Proxmox VM
@@ -140,9 +181,14 @@ CPU=$(yq -r '.resources.cpu' "$CONFIG")
 
 echo "Creating VM $VMID ($NAME)"
 
+NET0_OPT="virtio,bridge=$BRIDGE,firewall=1"
+if [ -n "$VLAN" ] && [ "$VLAN" != "null" ]; then
+  NET0_OPT="$NET0_OPT,tag=$VLAN"
+fi
+
 qm create "$VMID" \
   --name "$NAME" \
-  --net0 virtio,bridge="$BRIDGE",tag="$VLAN",firewall=1 \
+  --net0 "$NET0_OPT" \
   --scsihw virtio-scsi-single
 
 qm set "$VMID" \
