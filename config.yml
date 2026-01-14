@@ -34,14 +34,15 @@ virt_custom:
 
   commands:
     default:
+      default:
       - sed -i 's|^root:[^:]*:|root:!:|' /etc/shadow
-        - sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-        - sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        - sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        - echo "PasswordAuthentication yes" > /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
-        - systemctl enable qemu-guest-agent
-        - rm -rf /var/log/*
-        - apt-get clean
+          - sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+          - sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          - sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          - echo "PasswordAuthentication yes" > /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+          - systemctl enable qemu-guest-agent
+          - rm -rf /var/log/*
+          - apt-get clean
     alpine:
       - sed -i 's|^root:[^:]*:|root:!:|' /etc/shadow
       - sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
@@ -68,6 +69,7 @@ virt_custom:
 
 firstboot:
   default:
+    default:
     - apt update && apt -y upgrade
   almalinux:
     - dnf -y update
