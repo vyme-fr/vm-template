@@ -1,4 +1,10 @@
 images:
+  almalinux:
+    "8":
+      url: https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-latest.x86_64.qcow2
+    "9":
+      url: https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2
+
   debian:
     "11":
       url: https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-generic-amd64.raw
