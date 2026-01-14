@@ -111,15 +111,16 @@ FIRSTBOOT_CMD=$(yq -r ".firstboot.\"$OS\" // .firstboot.default | join(\" && \")
 echo "virt-customize"
 VIRT_CUSTOMIZE_ARGS=( -a "$IMAGE_FILE" )
 
-if [ "$OS" = "alpine" ]; then
-  NS_IP=$(yq -r '.template.nameserver // "1.1.1.1"' "$CONFIG")
+if [ "$OS" = "alpine" ] || [ "$OS" = "almalinux" ]; then
+  NS_IP=$(yq -r '.template.nameserver // "8.8.8.8"' "$CONFIG")
   PKGS_SPACE=$(echo "$INSTALL_PKGS" | tr ',' ' ')
 
-  ALPINE_SCRIPT="
+  CUSTOM_SCRIPT="
     set -x
-    echo '=== Alpine Network Setup ==='
-    ip link set dev eth0 up || ifconfig eth0 up || true
-    udhcpc -i eth0 -n -q -t 5 || true
+    echo '=== ${OS^} Network Setup ==='
+    # Try to bring interface up and get DHCP
+    ip link set dev eth0 up 2>/dev/null || ifconfig eth0 up 2>/dev/null || true
+    udhcpc -i eth0 -n -q -t 5 2>/dev/null || dhclient eth0 2>/dev/null || true
     
     echo '=== DNS Setup ==='
     rm -f /etc/resolv.conf
@@ -131,25 +132,34 @@ if [ "$OS" = "alpine" ]; then
     echo '=== Network Diagnosis ==='
     ip addr show dev eth0
     ping -c 2 8.8.8.8 || echo 'WARNING: Ping IP failed'
-    ping -c 2 dl-cdn.alpinelinux.org || echo 'WARNING: Ping Domain failed'
-
+    
     echo '=== Package Installation ==='
-    apk update
-    apk add $PKGS_SPACE
+  "
 
-    echo '=== Firstboot Configuration ==='
-    mkdir -p /etc/local.d
-    cat <<EOF > /etc/local.d/99-firstboot.start
+  if [ "$OS" = "alpine" ]; then
+    CUSTOM_SCRIPT+="
+      apk update
+      apk add $PKGS_SPACE
+
+      echo '=== Firstboot Configuration ==='
+      mkdir -p /etc/local.d
+      cat <<EOF > /etc/local.d/99-firstboot.start
 #!/bin/sh
 echo 'Running firstboot command...'
 $FIRSTBOOT_CMD
 echo 'Firstboot complete, deleting script.'
 rm -f /etc/local.d/99-firstboot.start
 EOF
-    chmod +x /etc/local.d/99-firstboot.start
-    rc-update add local default
-  "
-  VIRT_CUSTOMIZE_ARGS+=( --run-command "$ALPINE_SCRIPT" )
+      chmod +x /etc/local.d/99-firstboot.start
+      rc-update add local default
+    "
+  elif [ "$OS" = "almalinux" ]; then
+    CUSTOM_SCRIPT+="
+      dnf -y install $PKGS_SPACE
+    "
+  fi
+
+  VIRT_CUSTOMIZE_ARGS+=( --run-command "$CUSTOM_SCRIPT" )
 else
   # Standard logic for Debian/Ubuntu
   VIRT_CUSTOMIZE_ARGS+=( --install "$INSTALL_PKGS" )
