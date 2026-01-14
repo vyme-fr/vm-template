@@ -111,59 +111,62 @@ FIRSTBOOT_CMD=$(yq -r ".firstboot.\"$OS\" // .firstboot.default | join(\" && \")
 echo "virt-customize"
 VIRT_CUSTOMIZE_ARGS=( -a "$IMAGE_FILE" )
 
-if [ "$OS" = "alpine" ] || [ "$OS" = "almalinux" ]; then
-  NS_IP=$(yq -r '.template.nameserver // "8.8.8.8"' "$CONFIG")
-  PKGS_SPACE=$(echo "$INSTALL_PKGS" | tr ',' ' ')
+NS_IP=$(yq -r '.template.nameserver // "8.8.8.8"' "$CONFIG")
+PKGS_SPACE=$(echo "$INSTALL_PKGS" | tr ',' ' ')
 
-  CUSTOM_SCRIPT="
-    set -x
-    echo '=== ${OS^} Network Setup ==='
-    # Try to bring interface up and get DHCP
-    ip link set dev eth0 up 2>/dev/null || ifconfig eth0 up 2>/dev/null || true
-    udhcpc -i eth0 -n -q -t 5 2>/dev/null || dhclient eth0 2>/dev/null || true
-    
-    echo '=== DNS Setup ==='
-    rm -f /etc/resolv.conf
-    echo 'nameserver $NS_IP' > /etc/resolv.conf
-    echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
-    chmod 644 /etc/resolv.conf
-    cat /etc/resolv.conf
-    
-    echo '=== Network Diagnosis ==='
-    ip addr show dev eth0
-    ping -c 2 8.8.8.8 || echo 'WARNING: Ping IP failed'
-    
-    echo '=== Package Installation ==='
-  "
+CUSTOM_SCRIPT="
+  set -x
+  echo '=== ${OS^} Network Setup ==='
+  # Try to bring interface up and get DHCP (support varied interface names if needed, but eth0 is standard in appliance)
+  ip link set dev eth0 up 2>/dev/null || ifconfig eth0 up 2>/dev/null || true
+  udhcpc -i eth0 -n -q -t 5 2>/dev/null || dhclient eth0 2>/dev/null || true
+  
+  echo '=== DNS Setup ==='
+  rm -f /etc/resolv.conf
+  echo 'nameserver $NS_IP' > /etc/resolv.conf
+  echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
+  chmod 644 /etc/resolv.conf
+  cat /etc/resolv.conf
+  
+  echo '=== Network Diagnosis ==='
+  ip addr show dev eth0 || true
+  ping -c 2 8.8.8.8 || echo 'WARNING: Ping IP failed'
+  
+  echo '=== Package Installation ==='
+"
 
-  if [ "$OS" = "alpine" ]; then
-    CUSTOM_SCRIPT+="
-      apk update
-      apk add $PKGS_SPACE
+if [ "$OS" = "alpine" ]; then
+  CUSTOM_SCRIPT+="
+    apk update
+    apk add $PKGS_SPACE
 
-      echo '=== Firstboot Configuration ==='
-      mkdir -p /etc/local.d
-      cat <<EOF > /etc/local.d/99-firstboot.start
+    echo '=== Firstboot Configuration ==='
+    mkdir -p /etc/local.d
+    cat <<EOF > /etc/local.d/99-firstboot.start
 #!/bin/sh
 echo 'Running firstboot command...'
 $FIRSTBOOT_CMD
 echo 'Firstboot complete, deleting script.'
 rm -f /etc/local.d/99-firstboot.start
 EOF
-      chmod +x /etc/local.d/99-firstboot.start
-      rc-update add local default
-    "
-  elif [ "$OS" = "almalinux" ]; then
-    CUSTOM_SCRIPT+="
-      dnf -y install $PKGS_SPACE
-    "
-  fi
-
-  VIRT_CUSTOMIZE_ARGS+=( --run-command "$CUSTOM_SCRIPT" )
-else
-  # Standard logic for Debian/Ubuntu
-  VIRT_CUSTOMIZE_ARGS+=( --install "$INSTALL_PKGS" )
+    chmod +x /etc/local.d/99-firstboot.start
+    rc-update add local default
+  "
+elif [ "$OS" = "almalinux" ]; then
+  CUSTOM_SCRIPT+="
+    dnf -y install $PKGS_SPACE
+  "
+elif [ "$OS" = "debian" ] || [ "$OS" = "ubuntu" ]; then
+  CUSTOM_SCRIPT+="
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y $PKGS_SPACE
+  "
 fi
+
+echo "virt-customize"
+VIRT_CUSTOMIZE_ARGS=( -a "$IMAGE_FILE" )
+VIRT_CUSTOMIZE_ARGS+=( --run-command "$CUSTOM_SCRIPT" )
 
 # Add other common args
 VIRT_CUSTOMIZE_ARGS+=( "${CMD_ARGS[@]}" )
