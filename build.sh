@@ -9,7 +9,7 @@ IMAGES="images.yml"
 #######################################
 require() {
   command -v "$1" >/dev/null || {
-    echo "Missing dependency: $1"
+    echo "Missing dependency: $1${2:+ ($2)}"
     exit 1
   }
 }
@@ -24,7 +24,7 @@ die() {
 #######################################
 require yq
 require wget
-require virt-customize
+require virt-customize libguestfs-tools
 require qm
 require qemu-img
 require pvesm
@@ -35,7 +35,7 @@ require pvesm
 echo "OS list:"
 yq -r '.images | keys[]' "$IMAGES"
 
-read -rp "OS (debian/ubuntu/alpine): " OS
+read -rp "OS (debian/ubuntu/alpine/almalinux): " OS
 read -rp "Version: " VERSION
 
 IMAGE_URL=$(yq -r ".images.$OS.\"$VERSION\".url" "$IMAGES")
@@ -150,6 +150,60 @@ EOF
     rc-update add local default
   "
   VIRT_CUSTOMIZE_ARGS+=( --run-command "$ALPINE_SCRIPT" )
+elif [ "$OS" = "almalinux" ]; then
+  NS_IP=$(yq -r '.template.nameserver // "1.1.1.1"' "$CONFIG")
+  PKGS_SPACE=$(echo "$INSTALL_PKGS" | tr ',' ' ')
+
+  ALMALINUX_SCRIPT="
+    set -x
+    echo '=== AlmaLinux Network Setup ==='
+    ip link set dev eth0 up || true
+    dhclient -v eth0 || true
+    
+    echo '=== DNS Setup ==='
+    rm -f /etc/resolv.conf
+    echo 'nameserver $NS_IP' > /etc/resolv.conf
+    echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
+    chmod 644 /etc/resolv.conf
+    cat /etc/resolv.conf
+    
+    echo '=== Network Diagnosis ==='
+    ip addr show dev eth0
+    ping -c 2 8.8.8.8 || echo 'WARNING: Ping IP failed'
+    ping -c 2 repo.almalinux.org || echo 'WARNING: Ping Domain failed'
+
+    echo '=== Package Installation ==='
+    dnf -y install $PKGS_SPACE
+
+    echo '=== Firstboot Configuration ==='
+    mkdir -p /usr/local/bin
+    cat <<EOF > /usr/local/bin/firstboot.sh
+#!/bin/bash
+echo 'Running firstboot command...'
+$FIRSTBOOT_CMD
+echo 'Firstboot complete, deleting script and service.'
+systemctl disable firstboot.service
+rm -f /usr/local/bin/firstboot.sh /etc/systemd/system/firstboot.service
+EOF
+    chmod +x /usr/local/bin/firstboot.sh
+    
+    cat <<EOF > /etc/systemd/system/firstboot.service
+[Unit]
+Description=First Boot Configuration
+After=network-online.target cloud-init.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/firstboot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable firstboot.service
+  "
+  VIRT_CUSTOMIZE_ARGS+=( --run-command "$ALMALINUX_SCRIPT" )
 else
   # Standard logic for Debian/Ubuntu
   VIRT_CUSTOMIZE_ARGS+=( --install "$INSTALL_PKGS" )
@@ -158,7 +212,7 @@ fi
 # Add other common args
 VIRT_CUSTOMIZE_ARGS+=( "${CMD_ARGS[@]}" )
 
-if [ "$OS" != "alpine" ]; then
+if [ "$OS" != "alpine" ] && [ "$OS" != "almalinux" ]; then
   VIRT_CUSTOMIZE_ARGS+=( --firstboot-command "$FIRSTBOOT_CMD" )
 fi
 

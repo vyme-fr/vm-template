@@ -40,6 +40,34 @@ if grep -qi "alpine" /etc/os-release; then
     printf " Uptime : $uptime_formatted\n"
     printf "\n"
 
+elif grep -qi "almalinux" /etc/os-release; then
+    . /etc/os-release
+    DISTRIB_DESCRIPTION="$PRETTY_NAME"
+
+    re='(.*\()(.*)(\).*)'
+    if [[ $DISTRIB_DESCRIPTION =~ $re ]]; then
+        DISTRIB_DESCRIPTION=$(printf "%s%s%s%s%s" "${BASH_REMATCH[1]}" "${YELLOW}" "${BASH_REMATCH[2]}" "${NONE}" "${BASH_REMATCH[3]}")
+    fi
+
+    printf "$WHITE$DISTRIB_DESCRIPTION (kernel $(uname -r))$NONE\n"
+
+    memfree=$(grep MemFree /proc/meminfo | awk '{print $2}')
+    memtotal=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    memfree_mb=$(echo "scale=2; $memfree/1024" | bc)
+    memtotal_mb=$(echo "scale=2; $memtotal/1024" | bc)
+
+    uptime_formatted=$(uptime | awk -F'up ' '{print $2}' | awk -F',' '{print $1}')
+
+    addrip=$(ip addr show eth0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
+
+    read one five fifteen rest < /proc/loadavg
+
+    printf " Load avg : $one (1min) / $five (5min) / $fifteen (15min)\n"
+    printf " IP : $addrip\n"
+    printf " RAM : $memfree_mb MB free / $memtotal_mb MB\n"
+    printf " Uptime : $uptime_formatted\n"
+    printf "\n"
+
 else
     if [ -r /etc/motd.d/lsb-release ]; then
         . /etc/motd.d/lsb-release
